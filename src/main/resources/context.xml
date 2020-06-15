@@ -1,0 +1,16 @@
+<beans>
+    <bean id="mailService" class="com.boroday.dependencyinjection.service.MailService">
+        <property name="protocol" value="POP3"/>
+        <property name="port" value="3000"/>
+    </bean>
+    <bean id="userService" class="com.boroday.dependencyinjection.service.UserService">
+        <property name="mailService" ref="mailService"/>
+    </bean>
+    <bean id="paymentWithMaxService" class="com.boroday.dependencyinjection.service.PaymentService">
+        <property name="maxAmount" value="5000"/>
+        <property name="mailService" ref="mailService"/>
+    </bean>
+    <bean id="paymentService" class="com.boroday.dependencyinjection.service.PaymentService">
+        <property name="mailService" ref="mailService"/>
+    </bean>
+</beans>
