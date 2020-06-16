@@ -2,16 +2,14 @@ package com.boroday.dependencyinjection.context;
 
 import com.boroday.dependencyinjection.entity.Bean;
 import com.boroday.dependencyinjection.entity.BeanDefinition;
+import com.boroday.dependencyinjection.exception.BeanInstantiationException;
 import com.boroday.dependencyinjection.reader.BeanDefinitionReader;
 import com.boroday.dependencyinjection.reader.XMLBeanDefinitionReader;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import static java.lang.Class.forName;
 
@@ -27,6 +25,7 @@ public class ClassPathApplicationContext implements ApplicationContext {
         beanDefinitions = reader.readBeanDefinitions();
         createBeansFromBeanDefinitions();
         injectDependencies();
+        injectRefDependencies();
     }
 
     private void createBeansFromBeanDefinitions() {
@@ -55,14 +54,30 @@ public class ClassPathApplicationContext implements ApplicationContext {
                     Set<String> objectFields = beanDefinition.getDependencies().keySet();
                     for (String objectField : objectFields) {
                         try {
-                            Method method = bean.getValue().getClass().getMethod("get" + objectField.substring(0, 1).toUpperCase() + objectField.substring(1));
-                            method.invoke(bean.getValue());
-                        } catch (NoSuchMethodException e) {
-                            e.printStackTrace(); //todo
-                        } catch (IllegalAccessException e) {
-                            e.printStackTrace();
-                        } catch (InvocationTargetException e) {
-                            e.printStackTrace();
+                            Method getMethod = bean.getValue().getClass().getMethod("get" + objectField.substring(0, 1).toUpperCase() + objectField.substring(1));
+                            Method setMethod = bean.getValue().getClass().getMethod("set" + objectField.substring(0, 1).toUpperCase() + objectField.substring(1), getMethod.getReturnType());
+                            String returnedType = getMethod.getReturnType().getName();
+                            if (returnedType.equals("int")) {
+                                setMethod.invoke(bean.getValue(), Integer.valueOf(beanDefinition.getDependencies().get(objectField)));
+                            } else if (returnedType.equals("short")) {
+                                setMethod.invoke(bean.getValue(), Short.valueOf(beanDefinition.getDependencies().get(objectField)));
+                            } else if (returnedType.equals("long")) {
+                                setMethod.invoke(bean.getValue(), Long.valueOf(beanDefinition.getDependencies().get(objectField)));
+                            } else if (returnedType.equals("float")) {
+                                setMethod.invoke(bean.getValue(), Float.valueOf(beanDefinition.getDependencies().get(objectField)));
+                            } else if (returnedType.equals("double")) {
+                                setMethod.invoke(bean.getValue(), Double.valueOf(beanDefinition.getDependencies().get(objectField)));
+                            } else if (returnedType.equals("boolean")) {
+                                setMethod.invoke(bean.getValue(), Boolean.valueOf(beanDefinition.getDependencies().get(objectField)));
+                            } else if (returnedType.equals("byte")) {
+                                setMethod.invoke(bean.getValue(), Byte.valueOf(beanDefinition.getDependencies().get(objectField)));
+                            } else if (returnedType.equals("java.lang.String")) {
+                                setMethod.invoke(bean.getValue(), beanDefinition.getDependencies().get(objectField));
+                            } else {
+                                throw new BeanInstantiationException("Type of Class field is not a primitive or a String");
+                            }
+                        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | NumberFormatException e) {
+                            throw new BeanInstantiationException("Unable to invoke method", e);
                         }
                     }
                 }
@@ -70,22 +85,38 @@ public class ClassPathApplicationContext implements ApplicationContext {
         }
     }
 
-    @Override
-    public Bean getBean(String nameOfBean) {
-        return null;
+    private void injectRefDependencies() {
+        for (Bean bean : beans) {
+            for (BeanDefinition beanDefinition : beanDefinitions) {
+                if (bean.getId().equals(beanDefinition.getId())) {
+                    Set<String> objectFields = beanDefinition.getRefDependencies().keySet();
+
+                }
+            }
+        }
     }
 
-    @Override
-    public List<String> getBeanNames() {
-        List<String> nameOfBeans = null;
-        /*for (Bean bean: beans){
-            nameOfBeans.add(bean.getId());
-        }*/
-        return nameOfBeans;
-    }
+        @Override
+        public Bean getBean (String idOfBean){
+            for (Bean bean : beans) {
+                if (bean.getId().equals(idOfBean)) {
+                    return bean;
+                }
+            }
+            return null;
+        }
 
-    @Override
-    public void setBeanDefinitionReader(BeanDefinitionReader beanDefinitionReader) {
+        @Override
+        public List<String> getBeanNames () {
+            List<String> nameOfBeans = null;
+            for (Bean bean : beans) {
+                nameOfBeans.add(bean.getValue().getClass().getName());
+            }
+            return nameOfBeans;
+        }
 
+        @Override
+        public void setBeanDefinitionReader (BeanDefinitionReader beanDefinitionReader){
+
+        }
     }
-}
