@@ -4,10 +4,6 @@ public class MailService {
     private String protocol;
     private int port;
 
-    public MailService() {
-        System.out.println("MailService object created");
-    }
-
     public String getProtocol() {
         return protocol;
     }

@@ -3,10 +3,6 @@ package com.boroday.dependencyinjection.service;
 public class UserService {
     private MailService mailService;
 
-    public UserService() {
-        System.out.println("UserService object created");
-    }
-
     public MailService getMailService() {
         return mailService;
     }

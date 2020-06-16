@@ -2,7 +2,6 @@ package com.boroday.dependencyinjection.reader;
 
 import com.boroday.dependencyinjection.entity.BeanDefinition;
 import com.boroday.dependencyinjection.exception.BeanInstantiationException;
-import com.boroday.dependencyinjection.reader.BeanDefinitionReader;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -32,7 +31,7 @@ public class XMLBeanDefinitionReader implements BeanDefinitionReader {
         DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
         try {
             DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
-            Document document = documentBuilder.parse(path[0]);
+            Document document = documentBuilder.parse(path[0]); //todo
             NodeList listOfBeanElements = document.getElementsByTagName("bean");
 
             for (int i = 0; i < listOfBeanElements.getLength(); i++) {
@@ -62,7 +61,7 @@ public class XMLBeanDefinitionReader implements BeanDefinitionReader {
                 }
             }
         } catch (ParserConfigurationException | IOException | SAXException e) {
-            throw new RuntimeException("It is not possible to parse XML file", e); //todo: rework
+            throw new BeanInstantiationException("It is not possible to parse XML file", e);
         }
         return listOfBeansDefinitions;
     }

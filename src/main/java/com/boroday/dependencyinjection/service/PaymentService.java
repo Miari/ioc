@@ -4,9 +4,6 @@ public class PaymentService {
     private MailService mailService;
     private int maxAmount;
 
-    public PaymentService() {
-        System.out.println("PaymentService object created");
-    }
 
     public MailService getMailService() {
         return mailService;
