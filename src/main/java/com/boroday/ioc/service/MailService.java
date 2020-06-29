@@ -1,4 +1,4 @@
-package com.boroday.dependencyinjection.service;
+package com.boroday.ioc.service;
 
 public class MailService {
     private String protocol;

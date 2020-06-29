@@ -1,12 +1,13 @@
-package com.boroday.dependencyinjection.context;
+package com.boroday.ioc.context;
 
-import com.boroday.dependencyinjection.entity.Bean;
-import com.boroday.dependencyinjection.entity.BeanDefinition;
-import com.boroday.dependencyinjection.exception.BeanInstantiationException;
-import com.boroday.dependencyinjection.reader.BeanDefinitionReader;
-import com.boroday.dependencyinjection.reader.XMLBeanDefinitionReader;
+import com.boroday.ioc.entity.Bean;
+import com.boroday.ioc.entity.BeanDefinition;
+import com.boroday.ioc.exception.BeanInstantiationException;
+import com.boroday.ioc.reader.BeanDefinitionReader;
+import com.boroday.ioc.reader.XMLBeanDefinitionReader;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
@@ -14,18 +15,20 @@ import java.util.*;
 import static java.lang.Class.forName;
 
 public class ClassPathApplicationContext implements ApplicationContext {
-    //private String[] path; //todo: почему path должна быть полем, а не локальной переменной?
     private List<Bean> beans;
-    private List<BeanDefinition> beanDefinitions;
-    private BeanDefinitionReader reader;
+    private final List<BeanDefinition> beanDefinitions;
 
     public ClassPathApplicationContext(String[] path) {
-        //path = Arrays.copyOf(pathToContextFile, pathToContextFile.length);
-        setBeanDefinitionReader(new XMLBeanDefinitionReader(path));
-        beanDefinitions = reader.readBeanDefinitions();
+        BeanDefinitionReader beanDefinitionReader = new XMLBeanDefinitionReader(path);
+        beanDefinitions = beanDefinitionReader.readBeanDefinitions();
+        //System.out.println(beanDefinitions.toString());//todo
+        createBeans();
+    }
+
+    private void createBeans() {
         createBeansFromBeanDefinitions();
-        injectDependencies();
-        injectRefDependencies();
+        injectDependencies("dependency");
+        injectDependencies("refDependency");
     }
 
     private void createBeansFromBeanDefinitions() {
@@ -40,91 +43,130 @@ public class ClassPathApplicationContext implements ApplicationContext {
                 Object object = constructor.newInstance();
                 bean.setValue(object);
                 beans.add(bean);
-            } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-                throw new BeanInstantiationException("Could not create bean from beanDefinition", e);
+            } catch (ClassNotFoundException e) {
+                throw new BeanInstantiationException("Class for \"" + beanDefinition.getBeanClassName() + "\" class definition from beanDefinition does not exist", e);
+            } catch (NoSuchMethodException e) {
+                throw new BeanInstantiationException("Constructor in class " + beanDefinition.getBeanClassName() + " does not exist", e);
+            } catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
+                throw new BeanInstantiationException("It is not possible to create an Instance of " + beanDefinition.getBeanClassName(), e);
             }
         }
     }
 
-    private void injectDependencies() {
+    protected void injectDependencies(String dependencyType) {
         for (Bean bean : beans) {
             for (BeanDefinition beanDefinition : beanDefinitions) {
                 if (bean.getId().equals(beanDefinition.getId())) {
-                    Set<String> objectFields = beanDefinition.getDependencies().keySet();
-                    for (String objectField : objectFields) {
-                        try {
-                            Method getMethod = bean.getValue().getClass().getMethod("get" + objectField.substring(0, 1).toUpperCase() + objectField.substring(1));
-                            Method setMethod = bean.getValue().getClass().getMethod("set" + objectField.substring(0, 1).toUpperCase() + objectField.substring(1), getMethod.getReturnType());
-                            String returnedType = getMethod.getReturnType().getName();
-                            if (returnedType.equals("int")) {
-                                setMethod.invoke(bean.getValue(), Integer.valueOf(beanDefinition.getDependencies().get(objectField)));
-                            } else if (returnedType.equals("short")) {
-                                setMethod.invoke(bean.getValue(), Short.valueOf(beanDefinition.getDependencies().get(objectField)));
-                            } else if (returnedType.equals("long")) {
-                                setMethod.invoke(bean.getValue(), Long.valueOf(beanDefinition.getDependencies().get(objectField)));
-                            } else if (returnedType.equals("float")) {
-                                setMethod.invoke(bean.getValue(), Float.valueOf(beanDefinition.getDependencies().get(objectField)));
-                            } else if (returnedType.equals("double")) {
-                                setMethod.invoke(bean.getValue(), Double.valueOf(beanDefinition.getDependencies().get(objectField)));
-                            } else if (returnedType.equals("boolean")) {
-                                setMethod.invoke(bean.getValue(), Boolean.valueOf(beanDefinition.getDependencies().get(objectField)));
-                            } else if (returnedType.equals("byte")) {
-                                setMethod.invoke(bean.getValue(), Byte.valueOf(beanDefinition.getDependencies().get(objectField)));
-                            } else if (returnedType.equals("java.lang.String")) {
-                                setMethod.invoke(bean.getValue(), beanDefinition.getDependencies().get(objectField));
-                            } else {
-                                throw new NumberFormatException("Type of field is not a primitive or a String");
-                            }
-                        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | NumberFormatException e) {
-                            throw new BeanInstantiationException("Unable to inject dependencies", e);
-                        }
+                    Set<String> objectFields;
+                    if ("dependency".equals(dependencyType)) {
+                        objectFields = beanDefinition.getDependencies().keySet();
+                        injectSimpleDependencies(objectFields, bean, beanDefinition);
+                    } else if ("refDependency".equals(dependencyType)) {
+                        objectFields = beanDefinition.getRefDependencies().keySet();
+                        injectRefDependencies(objectFields, bean, beanDefinition);
+                    } else {
+                        throw new IllegalArgumentException("Incorrect dependency type. Allowed values are \"dependency\" and \"refDependency\"");
                     }
                 }
             }
         }
     }
 
-    private void injectRefDependencies() {
-        for (Bean bean : beans) {
-            for (BeanDefinition beanDefinition : beanDefinitions) {
-                if (bean.getId().equals(beanDefinition.getId())) {
-                    Set<String> objectFields = beanDefinition.getRefDependencies().keySet();
-                    for (String objectField : objectFields) {
-                        try {
-                            Object refObject = getBean(objectField);
-                            Method method = bean.getValue().getClass().getMethod("set" + objectField.substring(0, 1).toUpperCase() + objectField.substring(1), refObject.getClass());
-                            method.invoke(bean.getValue(), refObject);
-                        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-                            throw new RuntimeException("Unable to inject references", e);
-                        }
-                    }
+    protected void injectSimpleDependencies(Set<String> objectFields, Bean bean, BeanDefinition beanDefinition) {
+
+        for (String objectField : objectFields) {
+            try {
+                Field field = bean.getValue().getClass().getDeclaredField(objectField);
+                Method setMethod = bean.getValue().getClass().getMethod("set" + Character.toUpperCase(objectField.charAt(0)) + objectField.substring(1), field.getType());
+                Class<?> returnedType = field.getType();
+                Object beanObject = bean.getValue();
+                if (int.class == returnedType) {
+                    setMethod.invoke(beanObject, Integer.valueOf(beanDefinition.getDependencies().get(objectField)));
+                } else if (short.class == returnedType) {
+                    setMethod.invoke(beanObject, Short.valueOf(beanDefinition.getDependencies().get(objectField)));
+                } else if (long.class == returnedType) {
+                    setMethod.invoke(beanObject, Long.valueOf(beanDefinition.getDependencies().get(objectField)));
+                } else if (float.class == returnedType) {
+                    setMethod.invoke(beanObject, Float.valueOf(beanDefinition.getDependencies().get(objectField)));
+                } else if (double.class == returnedType) {
+                    setMethod.invoke(beanObject, Double.valueOf(beanDefinition.getDependencies().get(objectField)));
+                } else if (boolean.class == returnedType) {
+                    setMethod.invoke(beanObject, Boolean.valueOf(beanDefinition.getDependencies().get(objectField)));
+                } else if (byte.class == returnedType) {
+                    setMethod.invoke(beanObject, Byte.valueOf(beanDefinition.getDependencies().get(objectField)));
+                } else if (char.class == returnedType) {
+                    setMethod.invoke(beanObject, beanDefinition.getDependencies().get(objectField).charAt(0));
+                } else if (String.class == returnedType) {
+                    setMethod.invoke(beanObject, beanDefinition.getDependencies().get(objectField));
+                } else {
+                    throw new NumberFormatException("Type of field " + objectField + " in " + bean.getValue().getClass() + " is not a primitive or a String");
                 }
+            } catch (NoSuchMethodException e) {
+                throw new BeanInstantiationException("Setter for " + objectField + " field of " + bean.getValue().getClass() + " is not found", e);
+            } catch (NoSuchFieldException e) {
+                throw new BeanInstantiationException(objectField + " field of " + bean.getValue().getClass() + " is not found", e);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new BeanInstantiationException("It is not possible to invoke setter for " + objectField + " field of " + bean.getValue().getClass(), e);
             }
         }
     }
+
+    protected void injectRefDependencies(Set<String> objectFields, Bean bean, BeanDefinition beanDefinition) {
+        for (String objectField : objectFields) {
+            if (getBean(beanDefinition.getRefDependencies().get(objectField)) == null) {
+                throw new BeanInstantiationException("There is no class for the value defined in \"ref\" attribute of \"property\" tag for bean " + bean.getId());
+            }
+            try {
+                Object refObject = getBean(beanDefinition.getRefDependencies().get(objectField));
+                Method method = bean.getValue().getClass().getMethod("set" + Character.toUpperCase(objectField.charAt(0)) + objectField.substring(1), refObject.getClass());
+                method.invoke(bean.getValue(), refObject);
+            } catch (NoSuchMethodException e) {
+                throw new BeanInstantiationException("Setter for " + objectField + " field of " + bean.getValue().getClass() + " is not found", e);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new BeanInstantiationException("It is not possible to invoke setter for " + objectField + " field of " + bean.getValue().getClass(), e);
+            }
+        }
+    }
+
 
     @Override
     public Object getBean(String idOfBean) {
+        Object resultBean = null;
         for (Bean bean : beans) {
             if (bean.getId().equals(idOfBean)) {
-                return bean.getValue();
+                if (resultBean == null ) {
+                    resultBean = bean.getValue();
+                } else {
+                    throw new IllegalArgumentException("There are more than 1 Bean for class " + idOfBean);
+                }
             }
         }
-        return null;
+        if (resultBean == null) {
+            throw new IllegalArgumentException("There is no one Bean for class " + idOfBean);
+        }
+        return resultBean;
     }
 
     @Override
     public <T> T getBean(Class<T> nameOfClass) {
+        Object resultBean = null;
         for (Bean bean : beans) {
             if (bean.getValue().getClass().equals(nameOfClass)) {
-                return (T) bean.getValue();
+                if (resultBean == null ) {
+                    resultBean = bean.getValue();
+                } else {
+                    throw new IllegalArgumentException("There are more than 1 Bean for class " + nameOfClass);
+                }
             }
         }
-        return null;
+        if (resultBean == null) {
+            throw new IllegalArgumentException("There is no one Bean for class " + nameOfClass);
+        }
+        return (T) resultBean;
     }
 
     @Override //todo: не понимаю, зачем нам этот метод, объясни, плиз
-    public <T> T getBean(String nameOfBean, Class<T> nameOfClass) {
+    public <T> T getBean(String nameOfBean, Class<T> nameOfClass) { //todo 27:17 first video
         for (Bean bean : beans) {
             if (!beans.isEmpty()) {
                 if (bean.getValue().getClass().equals(nameOfClass) && (bean.getId().equals(nameOfBean))) {
@@ -139,15 +181,10 @@ public class ClassPathApplicationContext implements ApplicationContext {
     public List<String> getBeanNames() {
         List<String> nameOfBeans = new ArrayList<>();
         if (!beans.isEmpty()) {
-                for (Bean bean : beans) {
-                nameOfBeans.add(bean.getId()); //nameOfBeans.add(bean.getValue().getClass().getName());
+            for (Bean bean : beans) {
+                nameOfBeans.add(bean.getId());
             }
         }
         return nameOfBeans;
-    }
-
-    @Override
-    public void setBeanDefinitionReader(BeanDefinitionReader beanDefinitionReader) {
-        reader = beanDefinitionReader;
     }
 }

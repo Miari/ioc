@@ -1,9 +1,8 @@
-package com.boroday.dependencyinjection.service;
+package com.boroday.ioc.service;
 
 public class PaymentService {
     private MailService mailService;
     private int maxAmount;
-
 
     public MailService getMailService() {
         return mailService;

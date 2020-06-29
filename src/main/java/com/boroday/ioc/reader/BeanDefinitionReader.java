@@ -1,6 +1,6 @@
-package com.boroday.dependencyinjection.reader;
+package com.boroday.ioc.reader;
 
-import com.boroday.dependencyinjection.entity.BeanDefinition;
+import com.boroday.ioc.entity.BeanDefinition;
 
 import java.util.List;
 

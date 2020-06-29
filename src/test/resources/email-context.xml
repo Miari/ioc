@@ -1,0 +1,6 @@
+<beans>
+    <bean id="mailServiceSMTP" class="com.boroday.ioc.service.MailService">
+        <property name="protocol" value="SMTP"/>
+        <property name="port" value="5000"/>
+    </bean>
+</beans>

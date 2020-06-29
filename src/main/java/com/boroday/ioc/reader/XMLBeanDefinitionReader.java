@@ -1,24 +1,24 @@
-package com.boroday.dependencyinjection.reader;
+package com.boroday.ioc.reader;
 
-import com.boroday.dependencyinjection.entity.BeanDefinition;
-import com.boroday.dependencyinjection.exception.BeanInstantiationException;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
+import com.boroday.ioc.entity.BeanDefinition;
+import com.boroday.ioc.exception.BeanInstantiationException;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import java.io.IOException;
+import javax.xml.namespace.QName;
+import javax.xml.stream.XMLEventReader;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.events.Attribute;
+import javax.xml.stream.events.StartElement;
+import javax.xml.stream.events.XMLEvent;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class XMLBeanDefinitionReader implements BeanDefinitionReader {
-    private String[] path;
+    private final String[] path;
 
     public XMLBeanDefinitionReader(String[] path) {
         this.path = path;
@@ -26,42 +26,57 @@ public class XMLBeanDefinitionReader implements BeanDefinitionReader {
 
     @Override
     public List<BeanDefinition> readBeanDefinitions() {
+        if (path.length < 1) {
+            throw new IllegalArgumentException("Path to context is not provided");
+        }
+        XMLInputFactory factory = XMLInputFactory.newInstance();
         List<BeanDefinition> listOfBeansDefinitions = new ArrayList<>();
-
-        DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
-        try {
-            DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
-            Document document = documentBuilder.parse(path[0]); //todo
-            NodeList listOfBeanElements = document.getElementsByTagName("bean");
-
-            for (int i = 0; i < listOfBeanElements.getLength(); i++) {
-                if (listOfBeanElements.item(i).getNodeType() == Node.ELEMENT_NODE) {
-                    Element element = (Element) listOfBeanElements.item(i);
-
-                    BeanDefinition beanDefinition = new BeanDefinition();
-                    beanDefinition.setId(element.getAttribute("id"));
-                    beanDefinition.setBeanClassName(element.getAttribute("class"));
-
-                    NodeList listOfChildNodes = element.getChildNodes();
-                    Map<String, String> valueMap = new HashMap<>();
-                    Map<String, String> refMap = new HashMap<>();
-                    for (int j = 0; j < listOfChildNodes.getLength(); j++) {
-                        if (listOfChildNodes.item(j).getNodeType() == Node.ELEMENT_NODE) {
-                            Element childElement = (Element) listOfChildNodes.item(j);
-                            if (childElement.getAttribute("value").isEmpty()) {
-                                refMap.put(childElement.getAttribute("name"), childElement.getAttribute("ref"));
-                            } else {
-                                valueMap.put(childElement.getAttribute("name"), childElement.getAttribute("value"));
+        for (String pathToFile : path) {
+            BeanDefinition beanDefinition = null;
+            Map<String, String> valueMap = null;
+            Map<String, String> refMap = null;
+            try {
+                XMLEventReader xmlEventReader = factory.createXMLEventReader(new FileInputStream(pathToFile));
+                while (xmlEventReader.hasNext()) {
+                    XMLEvent xmlEvent = xmlEventReader.nextEvent();
+                    try {
+                        if (xmlEvent.isStartElement()) {
+                            StartElement startElement = xmlEvent.asStartElement();
+                            if ("bean".equalsIgnoreCase(startElement.getName().getLocalPart())) {
+                                beanDefinition = new BeanDefinition();
+                                valueMap = new HashMap<>();
+                                refMap = new HashMap<>();
+                                String idAttribute = startElement.getAttributeByName(new QName("id")).getValue();
+                                beanDefinition.setId(idAttribute);
+                                String classAttribute = startElement.getAttributeByName(new QName("class")).getValue();
+                                beanDefinition.setBeanClassName(classAttribute);
+                            } else if ("property".equalsIgnoreCase(startElement.getName().getLocalPart())) {
+                                String nameAttribute = startElement.getAttributeByName(new QName("name")).getValue();
+                                Attribute valueAttribute = startElement.getAttributeByName(new QName("value"));
+                                if (valueAttribute != null) {
+                                    String valueAttributeValue = valueAttribute.getValue();
+                                    valueMap.put(nameAttribute, valueAttributeValue);
+                                } else {
+                                    String refAttribute = startElement.getAttributeByName(new QName("ref")).getValue();
+                                    refMap.put(nameAttribute, refAttribute);
+                                }
+                                beanDefinition.setDependencies(valueMap);
+                                beanDefinition.setRefDependencies(refMap);
                             }
                         }
+                    } catch (NullPointerException e) {
+                        throw new BeanInstantiationException("Incorrect setup of XML file", e);
                     }
-                    beanDefinition.setDependencies(valueMap);
-                    beanDefinition.setRefDependencies(refMap);
-                    listOfBeansDefinitions.add(beanDefinition);
+                    if (xmlEvent.isEndElement() && "bean".equalsIgnoreCase(xmlEvent.asEndElement().getName().getLocalPart())) {
+                        listOfBeansDefinitions.add(beanDefinition);
+                    }
                 }
+            } catch (XMLStreamException e) {
+                throw new RuntimeException("Processing error occurs during the creation of new XMLEventReader", e);
+            } catch (FileNotFoundException e) {
+                throw new RuntimeException("XML file was not found", e);
             }
-        } catch (ParserConfigurationException | IOException | SAXException e) {
-            throw new BeanInstantiationException("It is not possible to parse XML file", e);
+
         }
         return listOfBeansDefinitions;
     }

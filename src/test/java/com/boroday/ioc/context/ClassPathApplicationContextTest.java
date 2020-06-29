@@ -1,18 +1,25 @@
-package com.boroday.dependencyinjection.context;
+package com.boroday.ioc.context;
 
-import com.boroday.dependencyinjection.service.MailService;
-import com.boroday.dependencyinjection.service.PaymentService;
-import com.boroday.dependencyinjection.service.UserService;
+import com.boroday.ioc.service.MailService;
+import com.boroday.ioc.service.PaymentService;
+import com.boroday.ioc.service.UserService;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class ClassPathApplicationContextTest {
-    String[] pathToContextFile = {"src/main/resources/context.xml"};
+    String[] pathToContextFile = {"src/test/resources/context.xml"};
     ApplicationContext applicationContext = new ClassPathApplicationContext(pathToContextFile);
+    ClassPathApplicationContext classPathApplicationContext = new ClassPathApplicationContext(pathToContextFile);
+
+    @Test
+    public void testInjectDependencies(){
+        classPathApplicationContext.injectDependencies("dependency");
+    }
 
     @Test
     public void testGetBeanNames() {
@@ -40,14 +47,15 @@ public class ClassPathApplicationContextTest {
         Object beanPaymentService = applicationContext.getBean("paymentService");
 
         //then
-        assertTrue(beanMailService.getClass().getName().equals("com.boroday.dependencyinjection.service.MailService"));
-        assertTrue(beanUserService.getClass().getName().equals("com.boroday.dependencyinjection.service.UserService"));
-        assertTrue(beanPaymentService.getClass().getName().equals("com.boroday.dependencyinjection.service.PaymentService"));
+        assertEquals("com.boroday.ioc.service.MailService", beanMailService.getClass().getName());
+        assertEquals("com.boroday.ioc.service.UserService", beanUserService.getClass().getName());
+        assertEquals("com.boroday.ioc.service.PaymentService", beanPaymentService.getClass().getName());
     }
 
     @Test
     public void testGetBeanByClass() {
         //prepare
+
         MailService mailService = new MailService();
         UserService userService = new UserService();
         PaymentService paymentService = new PaymentService();
@@ -58,8 +66,8 @@ public class ClassPathApplicationContextTest {
         PaymentService beanPaymentService = applicationContext.getBean(paymentService.getClass());
 
         //then
-        assertTrue(beanMailService.getClass().getName().equals("com.boroday.dependencyinjection.service.MailService"));
-        assertTrue(beanUserService.getClass().getName().equals("com.boroday.dependencyinjection.service.UserService"));
-        assertTrue(beanPaymentService.getClass().getName().equals("com.boroday.dependencyinjection.service.PaymentService"));
+        assertTrue(beanMailService.getClass().getName().equals("com.boroday.ioc.service.MailService"));
+        assertTrue(beanUserService.getClass().getName().equals("com.boroday.ioc.service.UserService"));
+        assertTrue(beanPaymentService.getClass().getName().equals("com.boroday.ioc.service.PaymentService"));
     }
 }

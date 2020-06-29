@@ -1,8 +1,8 @@
-package com.boroday.dependencyinjection.context;
+package com.boroday.ioc.context;
 
-import com.boroday.dependencyinjection.entity.BeanDefinition;
-import com.boroday.dependencyinjection.reader.BeanDefinitionReader;
-import com.boroday.dependencyinjection.reader.XMLBeanDefinitionReader;
+import com.boroday.ioc.entity.BeanDefinition;
+import com.boroday.ioc.reader.BeanDefinitionReader;
+import com.boroday.ioc.reader.XMLBeanDefinitionReader;
 import org.junit.Test;
 
 import java.util.HashMap;
@@ -12,28 +12,25 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 
 public class XMLBeanDefinitionReaderTest {
-    String[] pathToContextFile = {"src/main/resources/context.xml"};
-    BeanDefinitionReader beanDefinitionReader = new XMLBeanDefinitionReader(pathToContextFile);
+    BeanDefinitionReader beanDefinitionReader = new XMLBeanDefinitionReader(new String[]{"src/test/resources/context.xml", "src/test/resources/email-context.xml"});
 
     @Test
     public void testReadBeanDefinitions() {
-        //prepare
-        BeanDefinition beanDefinitionMailService = new BeanDefinition();
-        beanDefinitionMailService.setId("mailService");
-        beanDefinitionMailService.setBeanClassName("com.boroday.dependencyinjection.service.MailService");
-        Map<String, String> mapValueMailService = new HashMap<>();
-        mapValueMailService.put("protocol", "POP3");
-        mapValueMailService.put("port", "3000");
-        beanDefinitionMailService.setDependencies(mapValueMailService);
 
         //when
         List<BeanDefinition> beanDefinitions = beanDefinitionReader.readBeanDefinitions();
 
         //then
-        assertEquals(beanDefinitionMailService.getId(), beanDefinitions.get(0).getId());
-        assertEquals(beanDefinitionMailService.getBeanClassName(), beanDefinitions.get(0).getBeanClassName());
-        assertEquals(beanDefinitionMailService.getDependencies().get("protocol"), beanDefinitions.get(0).getDependencies().get("protocol"));
-        assertEquals(beanDefinitionMailService.getDependencies().get("port"), beanDefinitions.get(0).getDependencies().get("port"));
-    }
+        assertEquals(5, beanDefinitions.size());
+        //dependencies
+        assertEquals("mailService", beanDefinitions.get(0).getId());
+        assertEquals("com.boroday.ioc.service.MailService", beanDefinitions.get(0).getBeanClassName());
+        assertEquals("POP3", beanDefinitions.get(0).getDependencies().get("protocol"));
+        assertEquals("3000", beanDefinitions.get(0).getDependencies().get("port"));
+        //refDependencies
+        assertEquals("userService", beanDefinitions.get(1).getId());
+        assertEquals("com.boroday.ioc.service.UserService", beanDefinitions.get(1).getBeanClassName());
+        assertEquals("mailService", beanDefinitions.get(1).getRefDependencies().get("mailService"));
 
+    }
 }

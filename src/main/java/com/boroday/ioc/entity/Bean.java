@@ -1,4 +1,4 @@
-package com.boroday.dependencyinjection.entity;
+package com.boroday.ioc.entity;
 
 public class Bean {
     private String id;

@@ -1,4 +1,4 @@
-package com.boroday.dependencyinjection.service;
+package com.boroday.ioc.service;
 
 public class UserService {
     private MailService mailService;
@@ -11,9 +11,10 @@ public class UserService {
         this.mailService = mailService;
     }
 
-    public void sendEmailWithUserCount() {
+    public boolean sendEmailWithUserCount() {
         int numberOfUsersInSystem = getUsersCount();
         mailService.sendEmail("meinEmail@gmail.com", "There are " + numberOfUsersInSystem + " users in system");
+        return true;
     }
 
     private int getUsersCount() {
