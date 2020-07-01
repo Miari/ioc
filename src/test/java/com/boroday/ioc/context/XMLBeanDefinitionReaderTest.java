@@ -5,9 +5,7 @@ import com.boroday.ioc.reader.BeanDefinitionReader;
 import com.boroday.ioc.reader.XMLBeanDefinitionReader;
 import org.junit.Test;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 
@@ -31,6 +29,5 @@ public class XMLBeanDefinitionReaderTest {
         assertEquals("userService", beanDefinitions.get(1).getId());
         assertEquals("com.boroday.ioc.service.UserService", beanDefinitions.get(1).getBeanClassName());
         assertEquals("mailService", beanDefinitions.get(1).getRefDependencies().get("mailService"));
-
     }
 }

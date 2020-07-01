@@ -16,22 +16,33 @@ import static java.lang.Class.forName;
 
 public class ClassPathApplicationContext implements ApplicationContext {
     private List<Bean> beans;
-    private final List<BeanDefinition> beanDefinitions;
+    private List<BeanDefinition> beanDefinitions;
+
+    public ClassPathApplicationContext() { //for testing purposes
+        beanDefinitions = null;
+    }
 
     public ClassPathApplicationContext(String[] path) {
         BeanDefinitionReader beanDefinitionReader = new XMLBeanDefinitionReader(path);
         beanDefinitions = beanDefinitionReader.readBeanDefinitions();
-        //System.out.println(beanDefinitions.toString());//todo
         createBeans();
     }
 
+    protected void setBeans(List<Bean> beans) { // for testing purposes only
+        this.beans = beans;
+    }
+
+    protected void setBeanDefinitions(List<BeanDefinition> beanDefinitions) { // for testing purposes only
+        this.beanDefinitions = beanDefinitions;
+    }
+
     private void createBeans() {
-        createBeansFromBeanDefinitions();
+        createBeansFromBeanDefinitions(beanDefinitions);
         injectDependencies("dependency");
         injectDependencies("refDependency");
     }
 
-    private void createBeansFromBeanDefinitions() {
+    protected List<Bean> createBeansFromBeanDefinitions(List<BeanDefinition> beanDefinitions) {
         beans = new ArrayList<>();
         for (BeanDefinition beanDefinition : beanDefinitions) {
             Bean bean = new Bean();
@@ -51,6 +62,7 @@ public class ClassPathApplicationContext implements ApplicationContext {
                 throw new BeanInstantiationException("It is not possible to create an Instance of " + beanDefinition.getBeanClassName(), e);
             }
         }
+        return beans;
     }
 
     protected void injectDependencies(String dependencyType) {
@@ -128,21 +140,24 @@ public class ClassPathApplicationContext implements ApplicationContext {
         }
     }
 
-
     @Override
     public Object getBean(String idOfBean) {
         Object resultBean = null;
-        for (Bean bean : beans) {
-            if (bean.getId().equals(idOfBean)) {
-                if (resultBean == null ) {
-                    resultBean = bean.getValue();
-                } else {
-                    throw new IllegalArgumentException("There are more than 1 Bean for class " + idOfBean);
+        if (!beans.isEmpty()) {
+            for (Bean bean : beans) {
+                if (bean.getId().equals(idOfBean)) {
+                    if (resultBean == null) {
+                        resultBean = bean.getValue();
+                    } else {
+                        throw new IllegalArgumentException("There are more than 1 Bean for id " + idOfBean);
+                    }
                 }
             }
-        }
-        if (resultBean == null) {
-            throw new IllegalArgumentException("There is no one Bean for class " + idOfBean);
+            if (resultBean == null) {
+                throw new IllegalArgumentException("There is no one Bean for class " + idOfBean);
+            }
+        } else {
+            throw new BeanInstantiationException("No beans exist");
         }
         return resultBean;
     }
@@ -150,31 +165,45 @@ public class ClassPathApplicationContext implements ApplicationContext {
     @Override
     public <T> T getBean(Class<T> nameOfClass) {
         Object resultBean = null;
-        for (Bean bean : beans) {
-            if (bean.getValue().getClass().equals(nameOfClass)) {
-                if (resultBean == null ) {
-                    resultBean = bean.getValue();
-                } else {
-                    throw new IllegalArgumentException("There are more than 1 Bean for class " + nameOfClass);
+        if (!beans.isEmpty()) {
+            for (Bean bean : beans) {
+                if (bean.getValue().getClass().equals(nameOfClass)) {
+                    if (resultBean == null) {
+                        resultBean = bean.getValue();
+                    } else {
+                        throw new IllegalArgumentException("There are more than 1 Bean for class " + nameOfClass);
+                    }
                 }
             }
-        }
-        if (resultBean == null) {
-            throw new IllegalArgumentException("There is no one Bean for class " + nameOfClass);
+            if (resultBean == null) {
+                throw new IllegalArgumentException("There is no one Bean for class " + nameOfClass);
+            }
+        } else {
+            throw new BeanInstantiationException("No beans exist");
         }
         return (T) resultBean;
     }
 
-    @Override //todo: не понимаю, зачем нам этот метод, объясни, плиз
-    public <T> T getBean(String nameOfBean, Class<T> nameOfClass) { //todo 27:17 first video
-        for (Bean bean : beans) {
-            if (!beans.isEmpty()) {
-                if (bean.getValue().getClass().equals(nameOfClass) && (bean.getId().equals(nameOfBean))) {
-                    return (T) bean.getValue();
+    @Override
+    public <T> T getBean(String idOfBean, Class<T> nameOfClass) {
+        Object resultBean = null;
+        if (!beans.isEmpty()) {
+            for (Bean bean : beans) {
+                if (bean.getValue().getClass().equals(nameOfClass) && (bean.getId().equals(idOfBean))) {
+                    if (resultBean == null) {
+                        resultBean = bean.getValue();
+                    } else {
+                        throw new IllegalArgumentException("There are more than 1 Bean for " + nameOfClass + " and id " + idOfBean);
+                    }
                 }
             }
+            if (resultBean == null) {
+                throw new IllegalArgumentException("There is no one Bean for " + nameOfClass + " and id " + idOfBean);
+            }
+        } else {
+            throw new BeanInstantiationException("No beans exist");
         }
-        return null;
+        return (T) resultBean;
     }
 
     @Override
@@ -184,6 +213,8 @@ public class ClassPathApplicationContext implements ApplicationContext {
             for (Bean bean : beans) {
                 nameOfBeans.add(bean.getId());
             }
+        } else {
+            throw new BeanInstantiationException("No beans exist");
         }
         return nameOfBeans;
     }

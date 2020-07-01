@@ -39,14 +39,4 @@ public class BeanDefinition {
     public void setRefDependencies(Map<String, String> refDependencies) {
         this.refDependencies = refDependencies;
     }
-
-    @Override
-    public String toString() { //todo
-        return "BeanDefinition{" +
-                "id='" + id + '\'' +
-                ", beanClassName='" + beanClassName + '\'' +
-                ", dependencies=" + dependencies +
-                ", refDependencies=" + refDependencies +
-                '}' + "\n";
-    }
 }

@@ -11,7 +11,7 @@ public class UserService {
         this.mailService = mailService;
     }
 
-    public boolean sendEmailWithUserCount() {
+    public boolean sendEmailWithUserCount() { //boolean for test purposes
         int numberOfUsersInSystem = getUsersCount();
         mailService.sendEmail("meinEmail@gmail.com", "There are " + numberOfUsersInSystem + " users in system");
         return true;
